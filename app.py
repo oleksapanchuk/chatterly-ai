@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from content_moderation_service import ContentModerationService, ContentAnalysisResult
 from audio_transcription_service import AudioTranscriptionService, TranscriptionResult
+from image_processing_service import ImageProcessingService, ImageProcessingResult
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -19,6 +20,7 @@ app = FastAPI(
 # Initialize services
 content_moderation_service = ContentModerationService()
 audio_transcription_service = AudioTranscriptionService()
+image_processing_service = ImageProcessingService()
 
 # Environment variables
 API_SALT = os.getenv("API_SALT", "default_salt")  # Salt for API protection
@@ -119,20 +121,28 @@ async def process_audio_moderation(request: AudioRequest, salt: str = Depends(ve
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing audio for moderation: {str(e)}")
 
-@app.post("/process-image")
+@app.post("/process-image", response_model=ImageProcessingResult)
 async def process_image(request: ImageRequest, salt: str = Depends(verify_salt)):
     """
-    Process and moderate image content (placeholder)
+    Process and moderate image content
 
-    - This endpoint is a placeholder for future implementation
-    - Will analyze images for harmful content
+    - Downloads the image from the provided URL
+    - Generates a detailed description of the image
+    - Analyzes the description for harmful content
+    - Returns both the description and moderation results
     """
-    # Placeholder implementation
-    return {
-        "message": "Image processing not yet implemented",
-        "image_url": request.image_url,
-        "status": "placeholder"
-    }
+    try:
+        # Process the image and get moderation results
+        result = image_processing_service.process_image_url(request.image_url)
+
+        if not result.success:
+            raise HTTPException(status_code=500, detail=f"Error processing image: {result.error}")
+
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 # --------------------------------------------------------------
 # Server Startup
