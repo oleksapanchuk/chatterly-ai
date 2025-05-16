@@ -2,14 +2,15 @@ import time
 
 from fastapi import FastAPI, HTTPException, Depends
 
-from content_moderation_service import ContentModerationService, ContentAnalysisResult
-from dto.audio_moderation_result import AudioModerationResult
+from dto.audio_moderation_response import AudioModerationResponse
 from dto.base_requests import TextRequest, AudioRequest, ImageRequest
 from dto.moderation_request import ModerationRequest
 from dto.moderation_response import ModerationResponse
 from security.security import verify_salt
 from services.audio_transcription.audio_transcription_service import AudioTranscriptionService, TranscriptionResult
 from services.service import process_all_content_types
+from services.text_service import process_text_array
+from shared.gpt_text_analysis_result import GptTextAnalysisResult
 
 app = FastAPI(
     title="Chatterly ~ Content Moderation API",
@@ -17,14 +18,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-content_moderation_service = ContentModerationService()
 audio_transcription_service = AudioTranscriptionService()
 
 
-@app.post("/process-text", response_model=ContentAnalysisResult)
+@app.post("/process-text", response_model=GptTextAnalysisResult)
 async def process_text(request: TextRequest, salt: str = Depends(verify_salt)):
     try:
-        result = content_moderation_service.analyze_content(request.text)
+        result = process_text_array([request.text])
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -49,7 +49,7 @@ async def process_audio(request: AudioRequest, salt: str = Depends(verify_salt))
         raise HTTPException(status_code=500, detail=f"Error processing audio: {str(e)}")
 
 
-@app.post("/process-audio-moderation", response_model=AudioModerationResult)
+@app.post("/process-audio-moderation", response_model=AudioModerationResponse)
 async def process_audio_moderation(request: AudioRequest, salt: str = Depends(verify_salt)):
     try:
         transcription_result = audio_transcription_service.transcribe_audio_url(request.audio_url)
@@ -57,9 +57,9 @@ async def process_audio_moderation(request: AudioRequest, salt: str = Depends(ve
         if not transcription_result.success:
             raise HTTPException(status_code=500, detail=f"Error transcribing audio: {transcription_result.error}")
 
-        moderation_result = content_moderation_service.analyze_content(transcription_result.text)
+        moderation_result = process_text_array([transcription_result.text])
 
-        return AudioModerationResult(
+        return AudioModerationResponse(
             transcribed_text=transcription_result.text,
             moderation_result=moderation_result
         )
