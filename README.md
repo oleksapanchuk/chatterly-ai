@@ -80,7 +80,7 @@ print(f"Recommendation: {result.recommendation}")
 The service can also analyze audio content by first transcribing it and then analyzing the transcribed text:
 
 ```python
-from audio_transcription_service import AudioTranscriptionService
+from services.audio_transcription.audio_transcription_service import AudioTranscriptionService
 from content_moderation_service import ContentModerationService
 
 # Create instances of the services

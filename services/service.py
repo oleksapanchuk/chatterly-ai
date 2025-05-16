@@ -13,6 +13,8 @@ def process_all_content_types(
         image_urls: Optional[List[str]],
         audio_urls: Optional[List[str]],
 ):
+    image_result: list[ModerationResponse] = []
+
     is_harmful: bool = False
     calculated_confidence: float = 0.0
     severity_level: SeverityLevel = SeverityLevel.NONE
@@ -23,7 +25,7 @@ def process_all_content_types(
         process_text_array(text_array)
 
     if image_urls:
-        process_image_array(image_urls)
+        image_result = process_image_array(image_urls)
 
     if audio_urls:
         process_audio_array(audio_urls)

@@ -1,85 +1,28 @@
-# --------------------------------------------------------------
-# Content Moderation API Server
-# --------------------------------------------------------------
-
-import os
 import time
-from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header, Depends
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends
 
-from audio_transcription_service import AudioTranscriptionService, TranscriptionResult
 from content_moderation_service import ContentModerationService, ContentAnalysisResult
+from dto.audio_moderation_result import AudioModerationResult
+from dto.base_requests import TextRequest, AudioRequest, ImageRequest
 from dto.moderation_request import ModerationRequest
 from dto.moderation_response import ModerationResponse
-from image_processing_service import ImageProcessingService, ImageProcessingResult
+from security.security import verify_salt
+from services.audio_transcription.audio_transcription_service import AudioTranscriptionService, TranscriptionResult
 from services.service import process_all_content_types
 
-# Initialize FastAPI app
 app = FastAPI(
-    title="Content Moderation API",
+    title="Chatterly ~ Content Moderation API",
     description="API for moderating text, audio, and image content",
     version="1.0.0"
 )
 
-# Initialize services
 content_moderation_service = ContentModerationService()
 audio_transcription_service = AudioTranscriptionService()
-image_processing_service = ImageProcessingService()
 
-# Environment variables
-API_SALT = os.getenv("API_SALT", "default_salt")  # Salt for API protection
-
-
-# --------------------------------------------------------------
-# Request and Response Models
-# --------------------------------------------------------------
-
-class TextRequest(BaseModel):
-    """Request model for text content"""
-    text: str
-
-
-class AudioRequest(BaseModel):
-    """Request model for audio content"""
-    audio_url: str
-
-
-class ImageRequest(BaseModel):
-    """Request model for image content"""
-    image_url: str
-
-
-class AudioModerationResult(BaseModel):
-    """Response model for audio moderation"""
-    transcribed_text: str
-    moderation_result: ContentAnalysisResult
-
-
-# --------------------------------------------------------------
-# Security Dependencies
-# --------------------------------------------------------------
-
-def verify_salt(x_api_salt: Optional[str] = Header(None)):
-    """Verify the API salt to protect from abuse"""
-    if API_SALT != "default_salt" and (not x_api_salt or x_api_salt != API_SALT):
-        raise HTTPException(status_code=403, detail="Invalid API salt")
-    return x_api_salt
-
-
-# --------------------------------------------------------------
-# API Endpoints
-# --------------------------------------------------------------
 
 @app.post("/process-text", response_model=ContentAnalysisResult)
 async def process_text(request: TextRequest, salt: str = Depends(verify_salt)):
-    """
-    Process and moderate text content
-
-    - Analyzes text for harmful content
-    - Returns detailed analysis results
-    """
     try:
         result = content_moderation_service.analyze_content(request.text)
         return result
@@ -108,25 +51,14 @@ async def process_audio(request: AudioRequest, salt: str = Depends(verify_salt))
 
 @app.post("/process-audio-moderation", response_model=AudioModerationResult)
 async def process_audio_moderation(request: AudioRequest, salt: str = Depends(verify_salt)):
-    """
-    Process audio content for transcription and content moderation
-
-    - Transcribes audio from the provided URL
-    - Analyzes the transcribed text for harmful content
-    - Returns both the transcribed text and moderation results
-    """
     try:
-        # Step 1: Transcribe the audio
         transcription_result = audio_transcription_service.transcribe_audio_url(request.audio_url)
-        print("Processing audio for moderation:")
-        print(transcription_result)
+
         if not transcription_result.success:
             raise HTTPException(status_code=500, detail=f"Error transcribing audio: {transcription_result.error}")
 
-        # Step 2: Analyze the transcribed text
         moderation_result = content_moderation_service.analyze_content(transcription_result.text)
 
-        # Step 3: Return combined result
         return AudioModerationResult(
             transcribed_text=transcription_result.text,
             moderation_result=moderation_result
@@ -137,28 +69,9 @@ async def process_audio_moderation(request: AudioRequest, salt: str = Depends(ve
         raise HTTPException(status_code=500, detail=f"Error processing audio for moderation: {str(e)}")
 
 
-@app.post("/process-image", response_model=ImageProcessingResult)
+@app.post("/process-image")
 async def process_image(request: ImageRequest, salt: str = Depends(verify_salt)):
-    """
-    Process and moderate image content
-
-    - Downloads the image from the provided URL
-    - Generates a detailed description of the image
-    - Analyzes the description for harmful content
-    - Returns both the description and moderation results
-    """
-    try:
-        # Process the image and get moderation results
-        result = image_processing_service.process_image_url(request.image_url)
-
-        if not result.success:
-            raise HTTPException(status_code=500, detail=f"Error processing image: {result.error}")
-
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+    raise HTTPException(status_code=400, detail='Method not supported. Use /moderate-content instead.')
 
 
 @app.post("/moderate-content", response_model=ModerationResponse)
@@ -168,7 +81,6 @@ async def process_image(
 ):
     try:
         start_time = time.time()
-        processing_time = int((time.time() - start_time) * 1000)
 
         result = process_all_content_types(
             request.text_array,
@@ -176,17 +88,13 @@ async def process_image(
             request.audio_urls
         )
 
-        result.processing_time_ms = processing_time
+        result.processing_time_ms = int((time.time() - start_time) * 1000)
 
         return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing content: {str(e)}")
 
-
-# --------------------------------------------------------------
-# Server Startup
-# --------------------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn
