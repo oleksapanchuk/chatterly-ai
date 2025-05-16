@@ -1,14 +1,11 @@
-# --------------------------------------------------------------
-# Content Moderation Service
-# --------------------------------------------------------------
-
 import os
 import instructor
 from pydantic import BaseModel, Field
 from openai import OpenAI
-from enum import Enum
 from typing import List, Optional
 from dotenv import load_dotenv
+
+from shared.validation_types import ContentCategory, SeverityLevel
 
 # Load environment variables
 load_dotenv()
@@ -22,25 +19,6 @@ TEMPERATURE = float(os.getenv("TEMPERATURE", "0"))
 # --------------------------------------------------------------
 # Pydantic Models for Content Analysis
 # --------------------------------------------------------------
-
-class ContentCategory(str, Enum):
-    """Categories of potentially harmful content"""
-    HATE_SPEECH = "hate_speech"
-    HARASSMENT = "harassment"
-    SELF_HARM = "self_harm"
-    SEXUAL = "sexual"
-    VIOLENCE = "violence"
-    MISINFORMATION = "misinformation"
-    SPAM = "spam"
-    NONE = "none"
-
-class SeverityLevel(str, Enum):
-    """Severity levels for harmful content"""
-    NONE = "none"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
 
 class ContentAnalysisResult(BaseModel):
     """Model for content analysis results"""

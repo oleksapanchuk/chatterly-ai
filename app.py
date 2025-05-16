@@ -3,12 +3,18 @@
 # --------------------------------------------------------------
 
 import os
+import time
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
-from typing import Optional
-from content_moderation_service import ContentModerationService, ContentAnalysisResult
+
 from audio_transcription_service import AudioTranscriptionService, TranscriptionResult
+from content_moderation_service import ContentModerationService, ContentAnalysisResult
+from dto.moderation_request import ModerationRequest
+from dto.moderation_response import ModerationResponse
 from image_processing_service import ImageProcessingService, ImageProcessingResult
+from services.service import process_all_content_types
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -25,6 +31,7 @@ image_processing_service = ImageProcessingService()
 # Environment variables
 API_SALT = os.getenv("API_SALT", "default_salt")  # Salt for API protection
 
+
 # --------------------------------------------------------------
 # Request and Response Models
 # --------------------------------------------------------------
@@ -33,18 +40,22 @@ class TextRequest(BaseModel):
     """Request model for text content"""
     text: str
 
+
 class AudioRequest(BaseModel):
     """Request model for audio content"""
     audio_url: str
+
 
 class ImageRequest(BaseModel):
     """Request model for image content"""
     image_url: str
 
+
 class AudioModerationResult(BaseModel):
     """Response model for audio moderation"""
     transcribed_text: str
     moderation_result: ContentAnalysisResult
+
 
 # --------------------------------------------------------------
 # Security Dependencies
@@ -55,6 +66,7 @@ def verify_salt(x_api_salt: Optional[str] = Header(None)):
     if API_SALT != "default_salt" and (not x_api_salt or x_api_salt != API_SALT):
         raise HTTPException(status_code=403, detail="Invalid API salt")
     return x_api_salt
+
 
 # --------------------------------------------------------------
 # API Endpoints
@@ -76,6 +88,7 @@ async def process_text(request: TextRequest, salt: str = Depends(verify_salt)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
 
+
 @app.post("/process-audio", response_model=TranscriptionResult)
 async def process_audio(request: AudioRequest, salt: str = Depends(verify_salt)):
     """
@@ -92,6 +105,7 @@ async def process_audio(request: AudioRequest, salt: str = Depends(verify_salt))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing audio: {str(e)}")
 
+
 @app.post("/process-audio-moderation", response_model=AudioModerationResult)
 async def process_audio_moderation(request: AudioRequest, salt: str = Depends(verify_salt)):
     """
@@ -104,7 +118,8 @@ async def process_audio_moderation(request: AudioRequest, salt: str = Depends(ve
     try:
         # Step 1: Transcribe the audio
         transcription_result = audio_transcription_service.transcribe_audio_url(request.audio_url)
-
+        print("Processing audio for moderation:")
+        print(transcription_result)
         if not transcription_result.success:
             raise HTTPException(status_code=500, detail=f"Error transcribing audio: {transcription_result.error}")
 
@@ -120,6 +135,7 @@ async def process_audio_moderation(request: AudioRequest, salt: str = Depends(ve
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing audio for moderation: {str(e)}")
+
 
 @app.post("/process-image", response_model=ImageProcessingResult)
 async def process_image(request: ImageRequest, salt: str = Depends(verify_salt)):
@@ -144,10 +160,35 @@ async def process_image(request: ImageRequest, salt: str = Depends(verify_salt))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
+
+@app.post("/moderate-content", response_model=ModerationResponse)
+async def process_image(
+        request: ModerationRequest,
+        salt: str = Depends(verify_salt)
+):
+    try:
+        start_time = time.time()
+        processing_time = int((time.time() - start_time) * 1000)
+
+        result = process_all_content_types(
+            request.text_array,
+            request.image_urls,
+            request.audio_urls
+        )
+
+        result.processing_time_ms = processing_time
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing content: {str(e)}")
+
+
 # --------------------------------------------------------------
 # Server Startup
 # --------------------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
