@@ -1,15 +1,13 @@
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field
 
-from shared.validation_types import ContentCategory, SeverityLevel
+from shared.validation_types import ContentCategorySeverity
 
 
 class ModerationResponse(BaseModel):
     request_id: str = Field(description="Unique identifier for the request")
     is_harmful: bool = Field(description="Whether the content contains harmful elements")
-    categories: List[ContentCategory] = Field(description="Categories of harmful content detected")
-    severity: SeverityLevel = Field(description="Overall severity level of harmful content")
-    confidence: float = Field(ge=0, le=1, description="Confidence score for the analysis")
-    overall_recommendation: str = Field(description="Overall recommendation for handling the content")
+    categories: List[ContentCategorySeverity] = Field(description="Categories of harmful content detected")
+    score: float = Field(ge=0, le=100, description="Harmfulness score for the content")
     processing_time_ms: int

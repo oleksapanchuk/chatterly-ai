@@ -1,20 +1,29 @@
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class ContentCategory(str, Enum):
-    HATE_SPEECH = "hate_speech"
-    HARASSMENT = "harassment"
-    SELF_HARM = "self_harm"
-    SEXUAL = "sexual"
-    VIOLENCE = "violence"
-    MISINFORMATION = "misinformation"
-    SPAM = "spam"
-    NONE = "none"
+    HATE_SPEECH = "HATE_SPEECH"
+    HARASSMENT = "HARASSMENT"
+    SELF_HARM = "SELF_HARM"
+    SEXUAL = "SEXUAL"
+    VIOLENCE = "VIOLENCE"
+    MISINFORMATION = "MISINFORMATION"
+    SPAM = "SPAM"
+    NONE = "NONE"
 
 
 class SeverityLevel(str, Enum):
-    NONE = "none"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
+    NONE = "NONE"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+class ContentCategorySeverity(BaseModel):
+    category: ContentCategory = ContentCategory.NONE
+    severity: SeverityLevel = SeverityLevel.NONE
+    confidence: float = 0.0
+    details: Optional[str] = ""

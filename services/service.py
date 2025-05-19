@@ -5,7 +5,7 @@ from dto.moderation_response import ModerationResponse
 from services.audio_service import process_audio_array
 from services.image_service import process_image_array
 from services.text_service import process_text_array
-from shared.validation_types import ContentCategory, SeverityLevel
+from shared.validation_types import ContentCategorySeverity
 
 
 def process_all_content_types(
@@ -15,10 +15,7 @@ def process_all_content_types(
 ):
     image_result: list[ModerationResponse] = []
 
-    is_harmful: bool = False
-    calculated_confidence: float = 0.0
-    severity_level: SeverityLevel = SeverityLevel.NONE
-    detected_categories: List[ContentCategory] = []
+    detected_categories: List[ContentCategorySeverity] = []
     overall_recommendation: str = ""
 
     if text_array:
@@ -31,17 +28,13 @@ def process_all_content_types(
         process_audio_array(audio_urls)
 
     is_harmful = True
-    calculated_confidence = 0.9
-    severity_level = SeverityLevel.LOW
-    detected_categories.append(ContentCategory.SEXUAL)
-    overall_recommendation = "Content appears harmful"
+    score = 0.9
+    detected_categories.append(ContentCategorySeverity())
 
     return ModerationResponse(
         request_id=str(uuid.uuid4()),
         is_harmful=is_harmful,
         categories=detected_categories,
-        confidence=calculated_confidence,
-        severity=severity_level,
-        overall_recommendation=overall_recommendation,
+        score=score,
         processing_time_ms=0
     )
