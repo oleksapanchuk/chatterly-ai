@@ -65,7 +65,12 @@ def get_content_moderation_score(category_scores: dict[str, float]):
     actual_score: dict[ContentCategory, float] = {}
 
     for category, value in category_scores.items():
-        actual_score[get_content_moderation_category(category)] = value
+        content_category = get_content_moderation_category(category)
+
+        if content_category in actual_score:
+            actual_score[content_category] = max(actual_score[content_category], float(value))
+        else:
+            actual_score[content_category] = float(value)
 
     return actual_score
 
