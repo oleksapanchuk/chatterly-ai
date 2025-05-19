@@ -37,6 +37,9 @@ def process_all_content_types(
         audio_results = process_audio_array(audio_urls)
         detected_categories.extend(_convert_text_results_to_categories(audio_results))
 
+    # Sort categories by confidence in descending order
+    detected_categories.sort(key=lambda x: x.confidence, reverse=True)
+
     # Calculate overall content score
     content_score = scoring_service.calculate_content_score(
         text_results=text_results,

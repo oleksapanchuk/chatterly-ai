@@ -60,15 +60,15 @@ class ScoringService:
         if not scores:
             return 0
 
-        # Return weighted average, normalized to 0-100
-        return min(100, sum(scores) / len(scores))
+        # Use the maximum score instead of average to ensure high severity violations aren't diluted
+        return min(100, max(scores))
 
     def _calculate_text_score(self, results: List[GptTextAnalysisResult]) -> float:
         """Calculate score for text content."""
         if not results:
             return 0
 
-        total_score = 0
+        max_score = 0
         for result in results:
             if not result.is_harmful:
                 continue
@@ -85,16 +85,17 @@ class ScoringService:
             confidence_scores = list(result.confidence.values())
             avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.5
 
-            total_score += severity_score * category_multiplier * avg_confidence
+            score = severity_score * category_multiplier * avg_confidence
+            max_score = max(max_score, score)
 
-        return min(100, total_score / len(results))
+        return min(100, max_score)
 
     def _calculate_image_score(self, results: List[ModerationResult]) -> float:
         """Calculate score for image content."""
         if not results:
             return 0
 
-        total_score = 0
+        max_score = 0
         for result in results:
             if not result.is_harmful:
                 continue
@@ -105,9 +106,10 @@ class ScoringService:
             highest_category = max(result.score.items(), key=lambda x: x[1])[0] if result.score else ContentCategory.NONE
             category_weight = self.CATEGORY_WEIGHTS[highest_category]
             
-            total_score += highest_score * 100 * category_weight
+            score = highest_score * 100 * category_weight
+            max_score = max(max_score, score)
 
-        return min(100, total_score / len(results)) if results else 0
+        return min(100, max_score)
 
     def update_user_reputation(
             self,
