@@ -8,7 +8,9 @@ from services.scoring_service import ScoringService
 from services.text_service import process_text_array
 from shared.moderation_result import ModerationResult
 from shared.validation_types import ContentCategorySeverity, SeverityLevel
+from shared.logger_config import get_logger
 
+logger = get_logger(__name__)
 scoring_service = ScoringService()
 
 
@@ -19,6 +21,8 @@ def process_all_content_types(
         user_id: Optional[str] = None
 ) -> ModerationResponse:
     """Process all content types and return moderation results with scoring."""
+    logger.info("Starting content processing for all types")
+    
     text_results = []
     image_results = []
     audio_results = []
@@ -26,19 +30,28 @@ def process_all_content_types(
 
     # Process each content type
     if text_array:
+        logger.info(f"Processing {len(text_array)} text items")
         text_results = process_text_array(text_array)
         detected_categories.extend(_convert_text_results_to_categories(text_results))
+        logger.debug(f"Text processing completed. Found {len(text_results)} results")
 
     if image_urls:
+        logger.info(f"Processing {len(image_urls)} image URLs")
         image_results = process_image_array(image_urls)
         detected_categories.extend(_convert_image_results_to_categories(image_results))
+        logger.debug(f"Image processing completed. Found {len(image_results)} results")
 
     if audio_urls:
+        logger.info(f"Processing {len(audio_urls)} audio URLs")
         audio_results = process_audio_array(audio_urls)
         detected_categories.extend(_convert_text_results_to_categories(audio_results))
+        logger.debug(f"Audio processing completed. Found {len(audio_results)} results")
+
+    logger.info("Successfully processed all content types")
 
     # Sort categories by confidence in descending order
     detected_categories.sort(key=lambda x: x.confidence, reverse=True)
+    logger.debug(f"Sorted {len(detected_categories)} detected categories by confidence")
 
     # Calculate overall content score
     content_score = scoring_service.calculate_content_score(
@@ -46,9 +59,11 @@ def process_all_content_types(
         image_results=image_results,
         audio_results=audio_results
     )
+    logger.debug(f"Calculated content score: {content_score}")
 
     # Determine if content is harmful based on score threshold
     is_harmful = content_score >= 25  # Consider content harmful if score is 25 or higher
+    logger.info(f"Content assessment complete. Score: {content_score}, Is harmful: {is_harmful}")
 
     return ModerationResponse(
         request_id=str(uuid.uuid4()),
@@ -61,6 +76,7 @@ def process_all_content_types(
 
 def _convert_text_results_to_categories(results) -> List[ContentCategorySeverity]:
     """Convert text analysis results to ContentCategorySeverity list."""
+    logger.debug(f"Converting {len(results)} text results to categories")
     categories = []
     for result in results:
         if result.is_harmful:
@@ -73,16 +89,18 @@ def _convert_text_results_to_categories(results) -> List[ContentCategorySeverity
                         details=result.explanation
                     )
                 )
+    logger.debug(f"Converted to {len(categories)} category entries")
     return categories
 
 
 def _convert_image_results_to_categories(results: list[ModerationResult]) -> List[ContentCategorySeverity]:
+    logger.debug(f"Converting {len(results)} image results to categories")
     categories = []
     CONFIDENCE_THRESHOLD = 0.7  # Only include categories with 70% or higher confidence
     
     for result in results:
         if result.is_harmful:
-            print(result.score)
+            logger.debug(f"Processing harmful image result with score: {result.score}")
             high_confidence_categories = {
                 category: score for category, score in result.score.items() if score >= CONFIDENCE_THRESHOLD
             }
@@ -96,6 +114,8 @@ def _convert_image_results_to_categories(results: list[ModerationResult]) -> Lis
                         details=f"Image content flagged for {category} with {score:.2%} confidence"
                     )
                 )
+    
+    logger.debug(f"Converted to {len(categories)} image category entries")
     return categories
 
 

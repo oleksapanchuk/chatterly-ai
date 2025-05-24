@@ -5,9 +5,14 @@ from shared.gpt_text_analysis_result import GptTextAnalysisResult
 from shared.moderation_result import ModerationResult
 from shared.user_reputation import UserReputation, UserReputationLevel, UserBanStatus
 from shared.validation_types import ContentCategory, SeverityLevel
+from shared.logger_config import get_logger
 
 
 class ScoringService:
+    def __init__(self):
+        self.logger = get_logger(__name__)
+        self.logger.info("ScoringService initialized")
+        
     # Weights for different content types
     CONTENT_TYPE_WEIGHTS = {
         "text": 1.0,
@@ -42,35 +47,51 @@ class ScoringService:
             image_results: Optional[List[ModerationResult]] = None,
             audio_results: Optional[List[GptTextAnalysisResult]] = None
     ) -> float:
+        self.logger.info("Starting content score calculation")
+        self.logger.debug(f"Input counts - Text: {len(text_results) if text_results else 0}, "
+                         f"Image: {len(image_results) if image_results else 0}, "
+                         f"Audio: {len(audio_results) if audio_results else 0}")
+
         """Calculate overall content score based on all content types."""
         scores = []
 
         if text_results:
             text_score = self._calculate_text_score(text_results)
-            scores.append(text_score * self.CONTENT_TYPE_WEIGHTS["text"])
+            weighted_score = text_score * self.CONTENT_TYPE_WEIGHTS["text"]
+            scores.append(weighted_score)
+            self.logger.debug(f"Text score: {text_score}, Weighted: {weighted_score}")
 
         if image_results:
             image_score = self._calculate_image_score(image_results)
-            scores.append(image_score * self.CONTENT_TYPE_WEIGHTS["image"])
+            weighted_score = image_score * self.CONTENT_TYPE_WEIGHTS["image"]
+            scores.append(weighted_score)
+            self.logger.debug(f"Image score: {image_score}, Weighted: {weighted_score}")
 
         if audio_results:
             audio_score = self._calculate_text_score(audio_results)  # Audio uses same logic as text
-            scores.append(audio_score * self.CONTENT_TYPE_WEIGHTS["audio"])
+            weighted_score = audio_score * self.CONTENT_TYPE_WEIGHTS["audio"]
+            scores.append(weighted_score)
+            self.logger.debug(f"Audio score: {audio_score}, Weighted: {weighted_score}")
 
         if not scores:
+            self.logger.info("No content to score, returning 0")
             return 0
 
         # Use the maximum score instead of average to ensure high severity violations aren't diluted
-        return min(100, max(scores))
+        final_score = min(100, max(scores))
+        self.logger.info(f"Final content score calculated: {final_score}")
+        return final_score
 
     def _calculate_text_score(self, results: List[GptTextAnalysisResult]) -> float:
         """Calculate score for text content."""
         if not results:
             return 0
 
+        self.logger.debug(f"Calculating text score for {len(results)} results")
         max_score = 0
-        for result in results:
+        for i, result in enumerate(results):
             if not result.is_harmful:
+                self.logger.debug(f"Text result {i + 1} is not harmful, skipping")
                 continue
 
             # Base score from severity
@@ -86,18 +107,25 @@ class ScoringService:
             avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.5
 
             score = severity_score * category_multiplier * avg_confidence
+            self.logger.debug(f"Text result {i + 1}: severity={result.severity.value}, "
+                             f"categories={[c.value for c in result.categories]}, "
+                             f"score={score}")
             max_score = max(max_score, score)
 
-        return min(100, max_score)
+        final_score = min(100, max_score)
+        self.logger.debug(f"Text content max score: {final_score}")
+        return final_score
 
     def _calculate_image_score(self, results: List[ModerationResult]) -> float:
         """Calculate score for image content."""
         if not results:
             return 0
 
+        self.logger.debug(f"Calculating image score for {len(results)} results")
         max_score = 0
-        for result in results:
+        for i, result in enumerate(results):
             if not result.is_harmful:
+                self.logger.debug(f"Image result {i + 1} is not harmful, skipping")
                 continue
 
             # For images, we directly use the highest category score as the base
@@ -107,9 +135,13 @@ class ScoringService:
             category_weight = self.CATEGORY_WEIGHTS[highest_category]
             
             score = highest_score * 100 * category_weight
+            self.logger.debug(f"Image result {i + 1}: highest_category={highest_category.value}, "
+                             f"highest_score={highest_score}, score={score}")
             max_score = max(max_score, score)
 
-        return min(100, max_score)
+        final_score = min(100, max_score)
+        self.logger.debug(f"Image content max score: {final_score}")
+        return final_score
 
     def update_user_reputation(
             self,
@@ -118,22 +150,33 @@ class ScoringService:
             violation_details: Optional[dict] = None
     ) -> UserReputation:
         """Update user reputation based on content score."""
+        self.logger.info(f"Updating user reputation. Current score: {user_reputation.reputation_score}, Content score: {content_score}")
+        
         # Record violation if content is harmful
         if content_score > 0 and violation_details:
             violation_details["timestamp"] = datetime.utcnow()
             user_reputation.violation_history.append(violation_details)
+            self.logger.warning(f"Violation recorded. Total violations: {len(user_reputation.violation_history)}")
 
         # Calculate reputation impact
         impact = self._calculate_reputation_impact(content_score, len(user_reputation.violation_history))
         new_score = max(0, min(100, user_reputation.reputation_score - impact))
 
         # Update reputation
+        old_level = user_reputation.reputation_level
         user_reputation.reputation_score = new_score
         user_reputation.reputation_level = self._get_reputation_level(new_score)
         user_reputation.last_updated = datetime.utcnow()
 
+        self.logger.info(f"Reputation updated: {user_reputation.reputation_score} "
+                        f"(impact: -{impact:.2f}), Level: {old_level.value} -> {user_reputation.reputation_level.value}")
+
         # Check if ban is needed
+        old_ban_status = user_reputation.ban_status
         self._update_ban_status(user_reputation)
+        
+        if user_reputation.ban_status != old_ban_status:
+            self.logger.warning(f"Ban status changed: {old_ban_status.value} -> {user_reputation.ban_status.value}")
 
         return user_reputation
 
