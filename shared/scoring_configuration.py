@@ -1,5 +1,6 @@
-from typing import Dict, Optional
 from dataclasses import dataclass, field
+from typing import Dict
+
 from shared.validation_types import ContentCategory
 
 
@@ -9,22 +10,22 @@ class ScoringConfiguration:
     Configuration class for scoring parameters.
     Allows customization of category base risks and content type modifiers per request.
     """
-    
+
     category_base_risk: Dict[ContentCategory, float] = field(default_factory=lambda: {
-        ContentCategory.HATE_SPEECH: 85,      # Very high societal harm
-        ContentCategory.HARASSMENT: 75,       # High interpersonal harm
-        ContentCategory.VIOLENCE: 80,         # High physical safety risk
-        ContentCategory.SELF_HARM: 90,        # Extreme individual risk
-        ContentCategory.SEXUAL: 60,           # Moderate policy violation
-        ContentCategory.MISINFORMATION: 45,   # Medium societal concern
-        ContentCategory.SPAM: 25,             # Low-level annoyance
-        ContentCategory.NONE: 0               # No risk
+        ContentCategory.HATE_SPEECH: 85,  # Very high societal harm
+        ContentCategory.HARASSMENT: 75,  # High interpersonal harm
+        ContentCategory.VIOLENCE: 80,  # High physical safety risk
+        ContentCategory.SELF_HARM: 90,  # Extreme individual risk
+        ContentCategory.SEXUAL: 60,  # Moderate policy violation
+        ContentCategory.MISINFORMATION: 45,  # Medium societal concern
+        ContentCategory.SPAM: 25,  # Low-level annoyance
+        ContentCategory.NONE: 0  # No risk
     })
-    
+
     content_type_modifiers: Dict[str, float] = field(default_factory=lambda: {
-        "text": 0,      # Baseline - requires cognitive processing
-        "image": 12,    # High impact - immediate emotional processing, 90% visual preference  
-        "audio": 6      # Medium impact - temporal + emotional but with transcription degradation
+        "text": 0,  # Baseline - requires cognitive processing
+        "image": 12,  # High impact - immediate emotional processing, 90% visual preference
+        "audio": 6  # Medium impact - temporal + emotional but with transcription degradation
     })
 
     def __post_init__(self):
@@ -33,7 +34,7 @@ class ScoringConfiguration:
         for category, risk in self.category_base_risk.items():
             if not 0 <= risk <= 100:
                 raise ValueError(f"Category base risk for {category.value} must be between 0 and 100, got {risk}")
-        
+
         # Validate content type modifiers
         for content_type, modifier in self.content_type_modifiers.items():
             if not 0 <= modifier <= 50:  # Reasonable upper bound for modifiers
@@ -70,7 +71,7 @@ class ScoringConfiguration:
                     category_base_risk[category] = float(risk)
                 except (ValueError, TypeError):
                     continue  # Skip invalid categories
-        
+
         content_type_modifiers = {}
         if "content_type_modifiers" in config_dict:
             for content_type, modifier in config_dict["content_type_modifiers"].items():
@@ -78,8 +79,8 @@ class ScoringConfiguration:
                     content_type_modifiers[str(content_type)] = float(modifier)
                 except (ValueError, TypeError):
                     continue  # Skip invalid modifiers
-        
+
         return cls(
             category_base_risk=category_base_risk if category_base_risk else cls().category_base_risk,
             content_type_modifiers=content_type_modifiers if content_type_modifiers else cls().content_type_modifiers
-        ) 
+        )

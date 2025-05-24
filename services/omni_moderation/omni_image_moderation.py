@@ -1,6 +1,7 @@
+import os
+
 from dotenv import load_dotenv
 from openai import OpenAI
-import os
 
 from services.omni_moderation.omni_utils import get_omni_moderation_results, map_moderation_response_to_json
 
@@ -14,9 +15,9 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 def get_image_moderation_response(urls: list[str]):
     if not urls:
         raise ValueError("At least one URL must be provided")
-    
+
     results = []
-    
+
     for url in urls:
         input_list = []
 
@@ -38,10 +39,7 @@ def get_image_moderation_response(urls: list[str]):
             model="omni-moderation-latest",
             input=input_list,
         )
-        
+
         results.append({"url": url, "response": response})
-    
+
     return get_omni_moderation_results(map_moderation_response_to_json(results))
-
-
-

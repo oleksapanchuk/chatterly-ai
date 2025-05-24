@@ -3,23 +3,22 @@ from typing import List, Optional
 
 from dto.moderation_response import ModerationResponse
 from services.audio_service import process_audio_array
-from services.image_service import process_image_array
-from services.scoring_service import ScoringService
-from services.improved_scoring_service import ImprovedScoringService
 from services.content_decision_service import ContentDecisionService
+from services.image_service import process_image_array
+from services.improved_scoring_service import ImprovedScoringService
+from services.scoring_service import ScoringService
 from services.text_service import process_text_array
+from shared.action_threshold_config import ActionThresholdConfig
 from shared.content_type import ContentType
+from shared.gpt_text_analysis_result import GptTextAnalysisResult
 from shared.logger_config import get_logger
 from shared.moderation_result import ModerationResult
-from shared.validation_types import ContentCategorySeverity, SeverityLevel
-from shared.gpt_text_analysis_result import GptTextAnalysisResult
 from shared.scoring_configuration import ScoringConfiguration
-from shared.action_threshold_config import ActionThresholdConfig
+from shared.validation_types import ContentCategorySeverity, SeverityLevel
 
 logger = get_logger(__name__)
 
-# Configuration flag to choose scoring system
-USE_IMPROVED_SCORING = True  # Set to True to use the new probabilistic model
+USE_IMPROVED_SCORING = True
 
 
 def process_all_content_types(
@@ -32,7 +31,7 @@ def process_all_content_types(
 ) -> ModerationResponse:
     """Process all content types and return moderation results with scoring and action decision."""
     logger.info("Starting content processing for all types")
-    
+
     # Initialize scoring service with custom configuration if provided
     if USE_IMPROVED_SCORING:
         current_scoring_service = ImprovedScoringService(scoring_config)
@@ -98,7 +97,8 @@ def process_all_content_types(
 
     # Determine if content is harmful based on score threshold
     is_harmful = content_score >= 25  # Consider content harmful if score is 25 or higher
-    logger.info(f"Content assessment complete. Score: {content_score}, Is harmful: {is_harmful}, Action: {action.value}")
+    logger.info(
+        f"Content assessment complete. Score: {content_score}, Is harmful: {is_harmful}, Action: {action.value}")
 
     return ModerationResponse(
         request_id=str(uuid.uuid4()),
@@ -110,7 +110,8 @@ def process_all_content_types(
     )
 
 
-def _convert_text_results_to_categories(results, content_type: ContentType = ContentType.TEXT, sources: List[str] = None) -> List[
+def _convert_text_results_to_categories(results, content_type: ContentType = ContentType.TEXT,
+                                        sources: List[str] = None) -> List[
     ContentCategorySeverity]:
     """Convert text analysis results to ContentCategorySeverity list."""
     logger.debug(f"Converting {len(results)} {content_type} results to categories")
@@ -133,7 +134,8 @@ def _convert_text_results_to_categories(results, content_type: ContentType = Con
     return categories
 
 
-def _convert_image_results_to_categories(results: list[ModerationResult], urls: List[str]) -> List[ContentCategorySeverity]:
+def _convert_image_results_to_categories(results: list[ModerationResult], urls: List[str]) -> List[
+    ContentCategorySeverity]:
     logger.debug(f"Converting {len(results)} image results to categories")
     categories = []
     CONFIDENCE_THRESHOLD = 0.7  # Only include categories with 70% or higher confidence
@@ -161,7 +163,8 @@ def _convert_image_results_to_categories(results: list[ModerationResult], urls: 
     return categories
 
 
-def _convert_audio_results_to_categories(results: List[GptTextAnalysisResult], urls: List[str]) -> List[ContentCategorySeverity]:
+def _convert_audio_results_to_categories(results: List[GptTextAnalysisResult], urls: List[str]) -> List[
+    ContentCategorySeverity]:
     """Convert audio analysis results to ContentCategorySeverity list with URL tracking."""
     logger.debug(f"Converting {len(results)} audio results to categories")
     categories = []

@@ -1,6 +1,7 @@
 from typing import Optional
-from shared.content_action import ContentAction
+
 from shared.action_threshold_config import ActionThresholdConfig
+from shared.content_action import ContentAction
 from shared.logger_config import get_logger
 
 
@@ -28,10 +29,10 @@ class ContentDecisionService:
             ContentAction: The recommended action to take
         """
         action = self.threshold_config.determine_action(score)
-        
+
         self.logger.info(f"Content decision: score={score:.2f} -> action={action.value}")
         self.logger.debug(f"Threshold ranges: {self.threshold_config.get_threshold_ranges()}")
-        
+
         return action
 
     def get_decision_explanation(self, score: float, action: ContentAction) -> str:
@@ -47,12 +48,12 @@ class ContentDecisionService:
         """
         ranges = self.threshold_config.get_threshold_ranges()
         range_text = ranges.get(action, "unknown range")
-        
+
         explanation = (
             f"Content score of {score:.2f} falls in the {action.value} range ({range_text}). "
             f"{action.description}."
         )
-        
+
         return explanation
 
     def update_threshold_config(self, new_config: ActionThresholdConfig):
@@ -67,4 +68,4 @@ class ContentDecisionService:
 
     def get_current_thresholds(self) -> ActionThresholdConfig:
         """Get the current threshold configuration."""
-        return self.threshold_config 
+        return self.threshold_config

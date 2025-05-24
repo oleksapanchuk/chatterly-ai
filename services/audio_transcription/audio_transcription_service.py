@@ -4,8 +4,8 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
-from shared.transcription_result import TranscriptionResult
 from shared.logger_config import get_logger
+from shared.transcription_result import TranscriptionResult
 
 load_dotenv()
 
@@ -43,7 +43,7 @@ class AudioTranscriptionService:
             Exception: If the API call fails after maximum retries
         """
         logger.info(f"Starting audio transcription for URL: {audio_url}")
-        
+
         if not audio_url or not audio_url.strip():
             logger.error("Audio URL cannot be empty")
             raise ValueError("Audio URL cannot be empty")
@@ -56,7 +56,7 @@ class AudioTranscriptionService:
             "punctuate": True,
             "diarize": False
         }
-        
+
         logger.debug(f"Transcription parameters: {params}")
 
         for attempt in range(MAX_RETRIES):
@@ -84,7 +84,8 @@ class AudioTranscriptionService:
                 duration = metadata.get("duration", 0.0)
                 detected_language = metadata.get("detected_language", "unknown")
 
-                logger.info(f"Transcription successful. Duration: {duration}s, Language: {detected_language}, Confidence: {confidence:.2f}")
+                logger.info(
+                    f"Transcription successful. Duration: {duration}s, Language: {detected_language}, Confidence: {confidence:.2f}")
                 logger.debug(f"Transcript length: {len(transcript)} characters")
 
                 return TranscriptionResult(

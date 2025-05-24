@@ -26,8 +26,6 @@ def get_omni_moderation_results(result):
             )
         )
 
-    print(data)
-
     return data
 
 
@@ -73,6 +71,7 @@ def get_content_moderation_score(category_scores: dict[str, float]):
             actual_score[content_category] = float(value)
 
     return actual_score
+
 
 def map_moderation_response_to_json(results: list):
     mapped_results = []
