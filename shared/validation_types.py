@@ -31,3 +31,4 @@ class ContentCategorySeverity(BaseModel):
     confidence: float = 0.0
     details: Optional[str] = ""
     content_type: Optional[ContentType] = ContentType.UNKNOWN
+    source: Optional[str] = None
