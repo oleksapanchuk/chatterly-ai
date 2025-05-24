@@ -7,6 +7,7 @@ from shared.logger_config import get_logger
 from shared.moderation_result import ModerationResult
 from shared.user_reputation import UserReputation, UserReputationLevel
 from shared.validation_types import SeverityLevel, ContentCategory
+from shared.scoring_configuration import ScoringConfiguration
 
 
 class ImprovedScoringService:
@@ -15,32 +16,11 @@ class ImprovedScoringService:
     in the original severity-based system.
     """
 
-    def __init__(self):
+    def __init__(self, scoring_config: Optional[ScoringConfiguration] = None):
         self.logger = get_logger(__name__)
+        self.scoring_config = scoring_config or ScoringConfiguration.get_default_configuration()
         self.logger.info("ImprovedScoringService initialized")
-
-    # Category-specific base risk scores (0-100) representing inherent harmfulness
-    CATEGORY_BASE_RISK = {
-        ContentCategory.HATE_SPEECH: 85,      # Very high societal harm
-        ContentCategory.HARASSMENT: 75,       # High interpersonal harm
-        ContentCategory.VIOLENCE: 80,         # High physical safety risk
-        ContentCategory.SELF_HARM: 90,        # Extreme individual risk
-        ContentCategory.SEXUAL: 60,           # Moderate policy violation
-        ContentCategory.MISINFORMATION: 45,   # Medium societal concern
-        ContentCategory.SPAM: 25,             # Low-level annoyance
-        ContentCategory.NONE: 0               # No risk
-    }
-
-    # Additive content type modifiers (not multiplicative!)
-    # Based on empirical research:
-    # - Visual content: 90% of info processed visually (Mayer, 2005), immediate emotional impact
-    # - Audio content: Temporal persistence + emotional tone, but transcription degradation
-    # - Text content: Baseline requiring cognitive processing, easiest to regulate
-    CONTENT_TYPE_MODIFIERS = {
-        "text": 0,      # Baseline - requires cognitive processing
-        "image": 12,    # High impact - immediate emotional processing, 90% visual preference  
-        "audio": 6      # Medium impact - temporal + emotional but with transcription degradation
-    }
+        self.logger.debug(f"Using scoring configuration: {self.scoring_config.to_dict()}")
 
     def confidence_adjusted_risk(self, base_risk: float, confidence: float) -> float:
         """
@@ -71,8 +51,8 @@ class ImprovedScoringService:
         """
         Calculate score for individual category detection.
         """
-        # 1. Get base risk for this category
-        base_risk = self.CATEGORY_BASE_RISK.get(category, 0)
+        # 1. Get base risk for this category from configuration
+        base_risk = self.scoring_config.get_category_base_risk(category)
         
         # 2. Adjust confidence for audio content
         if is_audio:
@@ -82,8 +62,8 @@ class ImprovedScoringService:
         # 3. Apply probabilistic confidence adjustment
         adjusted_risk = self.confidence_adjusted_risk(base_risk, confidence)
         
-        # 4. Add content type modifier
-        content_modifier = self.CONTENT_TYPE_MODIFIERS.get(content_type, 0)
+        # 4. Add content type modifier from configuration
+        content_modifier = self.scoring_config.get_content_type_modifier(content_type)
         final_score = min(100, adjusted_risk + content_modifier)
         
         self.logger.debug(f"Category {category.value}: base_risk={base_risk}, "

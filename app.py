@@ -110,10 +110,19 @@ async def process_image(
                     f"Image URLs: {len(request.image_urls) if request.image_urls else 0} items, "
                     f"Audio URLs: {len(request.audio_urls) if request.audio_urls else 0} items")
 
+        # Extract scoring configuration from request
+        scoring_config = request.get_scoring_configuration()
+        if scoring_config:
+            logger.info("Using custom scoring configuration from request")
+            logger.debug(f"Custom scoring config: {scoring_config.to_dict()}")
+        else:
+            logger.debug("Using default scoring configuration")
+
         result = process_all_content_types(
             request.text_array,
             request.image_urls,
-            request.audio_urls
+            request.audio_urls,
+            scoring_config=scoring_config
         )
 
         processing_time = int((time.time() - start_time) * 1000)

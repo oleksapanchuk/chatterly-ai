@@ -12,28 +12,35 @@ from shared.logger_config import get_logger
 from shared.moderation_result import ModerationResult
 from shared.validation_types import ContentCategorySeverity, SeverityLevel
 from shared.gpt_text_analysis_result import GptTextAnalysisResult
+from shared.scoring_configuration import ScoringConfiguration
 
 logger = get_logger(__name__)
 
 # Configuration flag to choose scoring system
 USE_IMPROVED_SCORING = True  # Set to True to use the new probabilistic model
 
-if USE_IMPROVED_SCORING:
-    scoring_service = ImprovedScoringService()
-    logger.info("Using improved probabilistic scoring service")
-else:
-    scoring_service = ScoringService()
-    logger.info("Using legacy severity-based scoring service")
-
 
 def process_all_content_types(
         text_array: Optional[List[str]] = [],
         image_urls: Optional[List[str]] = [],
         audio_urls: Optional[List[str]] = [],
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        scoring_config: Optional[ScoringConfiguration] = None
 ) -> ModerationResponse:
     """Process all content types and return moderation results with scoring."""
     logger.info("Starting content processing for all types")
+    
+    # Initialize scoring service with custom configuration if provided
+    if USE_IMPROVED_SCORING:
+        current_scoring_service = ImprovedScoringService(scoring_config)
+        logger.info("Using improved probabilistic scoring service")
+        if scoring_config:
+            logger.info("Using custom scoring configuration")
+    else:
+        current_scoring_service = ScoringService()
+        logger.info("Using legacy severity-based scoring service")
+        if scoring_config:
+            logger.warning("Custom scoring configuration ignored - legacy scoring service doesn't support it")
 
     text_results = []
     image_results = []
@@ -67,7 +74,7 @@ def process_all_content_types(
     logger.info(f"Sorted {len(detected_categories)} detected categories by confidence")
 
     # Calculate overall content score
-    content_score = scoring_service.calculate_content_score(
+    content_score = current_scoring_service.calculate_content_score(
         text_results=text_results,
         image_results=image_results,
         audio_results=audio_results
