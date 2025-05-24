@@ -118,17 +118,27 @@ async def process_image(
         else:
             logger.debug("Using default scoring configuration")
 
+        # Extract action threshold configuration from request
+        action_threshold_config = request.get_action_threshold_configuration()
+        if action_threshold_config:
+            logger.info("Using custom action threshold configuration from request")
+            logger.debug(f"Custom action thresholds: {action_threshold_config.to_dict()}")
+        else:
+            logger.debug("Using default action threshold configuration")
+
         result = process_all_content_types(
             request.text_array,
             request.image_urls,
             request.audio_urls,
-            scoring_config=scoring_config
+            scoring_config=scoring_config,
+            action_threshold_config=action_threshold_config
         )
 
         processing_time = int((time.time() - start_time) * 1000)
         result.processing_time_ms = processing_time
         
-        logger.info(f"Content moderation completed successfully in {processing_time}ms. Is harmful: {result.is_harmful}")
+        logger.info(f"Content moderation completed successfully in {processing_time}ms. "
+                   f"Score: {result.score}, Action: {result.action.value}, Is harmful: {result.is_harmful}")
         return result
 
     except Exception as e:

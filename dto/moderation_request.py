@@ -2,6 +2,7 @@ from typing import Optional, List, Dict, Any
 
 from pydantic import BaseModel, Field
 from shared.scoring_configuration import ScoringConfiguration
+from shared.action_threshold_config import ActionThresholdConfig
 
 
 class ModerationRequest(BaseModel):
@@ -12,6 +13,10 @@ class ModerationRequest(BaseModel):
         default=None, 
         description="Optional custom scoring configuration. If not provided, default values will be used."
     )
+    action_thresholds: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Optional custom action thresholds. If not provided, default values will be used."
+    )
 
     def get_scoring_configuration(self) -> Optional[ScoringConfiguration]:
         """Convert scoring_config dict to ScoringConfiguration object."""
@@ -19,6 +24,16 @@ class ModerationRequest(BaseModel):
             return None
         try:
             return ScoringConfiguration.from_dict(self.scoring_config)
+        except Exception as e:
+            # If configuration is invalid, return None to use defaults
+            return None
+
+    def get_action_threshold_configuration(self) -> Optional[ActionThresholdConfig]:
+        """Convert action_thresholds dict to ActionThresholdConfig object."""
+        if not self.action_thresholds:
+            return None
+        try:
+            return ActionThresholdConfig.from_dict(self.action_thresholds)
         except Exception as e:
             # If configuration is invalid, return None to use defaults
             return None
@@ -44,6 +59,10 @@ class ModerationRequest(BaseModel):
                         "image": 15,
                         "audio": 8
                     }
+                },
+                "action_thresholds": {
+                    "not_block_threshold": 30,
+                    "block_threshold": 80
                 }
             }
         }

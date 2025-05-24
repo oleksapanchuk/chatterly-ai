@@ -6,6 +6,7 @@ from services.audio_service import process_audio_array
 from services.image_service import process_image_array
 from services.scoring_service import ScoringService
 from services.improved_scoring_service import ImprovedScoringService
+from services.content_decision_service import ContentDecisionService
 from services.text_service import process_text_array
 from shared.content_type import ContentType
 from shared.logger_config import get_logger
@@ -13,6 +14,7 @@ from shared.moderation_result import ModerationResult
 from shared.validation_types import ContentCategorySeverity, SeverityLevel
 from shared.gpt_text_analysis_result import GptTextAnalysisResult
 from shared.scoring_configuration import ScoringConfiguration
+from shared.action_threshold_config import ActionThresholdConfig
 
 logger = get_logger(__name__)
 
@@ -25,9 +27,10 @@ def process_all_content_types(
         image_urls: Optional[List[str]] = [],
         audio_urls: Optional[List[str]] = [],
         user_id: Optional[str] = None,
-        scoring_config: Optional[ScoringConfiguration] = None
+        scoring_config: Optional[ScoringConfiguration] = None,
+        action_threshold_config: Optional[ActionThresholdConfig] = None
 ) -> ModerationResponse:
-    """Process all content types and return moderation results with scoring."""
+    """Process all content types and return moderation results with scoring and action decision."""
     logger.info("Starting content processing for all types")
     
     # Initialize scoring service with custom configuration if provided
@@ -41,6 +44,14 @@ def process_all_content_types(
         logger.info("Using legacy severity-based scoring service")
         if scoring_config:
             logger.warning("Custom scoring configuration ignored - legacy scoring service doesn't support it")
+
+    # Initialize decision service with custom thresholds if provided
+    decision_service = ContentDecisionService(action_threshold_config)
+    if action_threshold_config:
+        logger.info("Using custom action threshold configuration")
+        logger.debug(f"Custom thresholds: {action_threshold_config.to_dict()}")
+    else:
+        logger.debug("Using default action threshold configuration")
 
     text_results = []
     image_results = []
@@ -81,15 +92,20 @@ def process_all_content_types(
     )
     logger.debug(f"Calculated content score: {content_score}")
 
+    # Determine action based on score
+    action = decision_service.decide_action(content_score)
+    logger.info(f"Decision service determined action: {action.value} for score {content_score}")
+
     # Determine if content is harmful based on score threshold
     is_harmful = content_score >= 25  # Consider content harmful if score is 25 or higher
-    logger.info(f"Content assessment complete. Score: {content_score}, Is harmful: {is_harmful}")
+    logger.info(f"Content assessment complete. Score: {content_score}, Is harmful: {is_harmful}, Action: {action.value}")
 
     return ModerationResponse(
         request_id=str(uuid.uuid4()),
         is_harmful=is_harmful,
         categories=detected_categories,
         score=content_score,
+        action=action,
         processing_time_ms=0  # This will be updated by the API endpoint
     )
 
