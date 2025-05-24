@@ -1,6 +1,8 @@
 import uuid
 from typing import List, Optional
 
+from sympy import true
+
 from dto.moderation_response import ModerationResponse
 from services.audio_service import process_audio_array
 from services.image_service import process_image_array
@@ -15,9 +17,9 @@ scoring_service = ScoringService()
 
 
 def process_all_content_types(
-        text_array: Optional[List[str]],
-        image_urls: Optional[List[str]],
-        audio_urls: Optional[List[str]],
+        text_array: Optional[List[str]] = [],
+        image_urls: Optional[List[str]] = [],
+        audio_urls: Optional[List[str]] = [],
         user_id: Optional[str] = None
 ) -> ModerationResponse:
     """Process all content types and return moderation results with scoring."""
@@ -28,30 +30,31 @@ def process_all_content_types(
     audio_results = []
     detected_categories: List[ContentCategorySeverity] = []
 
-    # Process each content type
-    if text_array:
+    if text_array and len(text_array) > 0:
         logger.info(f"Processing {len(text_array)} text items")
         text_results = process_text_array(text_array)
         detected_categories.extend(_convert_text_results_to_categories(text_results))
-        logger.debug(f"Text processing completed. Found {len(text_results)} results")
+        logger.info(f"Text processing completed. Found {len(text_results)} results")
 
-    if image_urls:
+    if image_urls and len(image_urls) > 0:
         logger.info(f"Processing {len(image_urls)} image URLs")
         image_results = process_image_array(image_urls)
         detected_categories.extend(_convert_image_results_to_categories(image_results))
-        logger.debug(f"Image processing completed. Found {len(image_results)} results")
+        logger.info(f"Image processing completed. Found {len(image_results)} results")
 
-    if audio_urls:
+    if audio_urls and len(audio_urls) > 0:
         logger.info(f"Processing {len(audio_urls)} audio URLs")
-        audio_results = process_audio_array(audio_urls)
-        detected_categories.extend(_convert_text_results_to_categories(audio_results))
-        logger.debug(f"Audio processing completed. Found {len(audio_results)} results")
+        audio__text_results = process_audio_array(audio_urls)
+        logger.info(f"Audio transcription completed. Found {audio__text_results} results")
+        moderation__audio_results = process_text_array(audio__text_results, True)
+        detected_categories.extend(_convert_text_results_to_categories(moderation__audio_results))
+        logger.info(f"Audio processing completed. Found {len(moderation__audio_results)} results")
 
     logger.info("Successfully processed all content types")
 
     # Sort categories by confidence in descending order
     detected_categories.sort(key=lambda x: x.confidence, reverse=True)
-    logger.debug(f"Sorted {len(detected_categories)} detected categories by confidence")
+    logger.info(f"Sorted {len(detected_categories)} detected categories by confidence")
 
     # Calculate overall content score
     content_score = scoring_service.calculate_content_score(

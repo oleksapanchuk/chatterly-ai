@@ -30,34 +30,9 @@ class GptModerationService:
         self.client = instructor.patch(OpenAI(api_key=self.api_key))
         logger.info(f"GptModerationService initialized with model: {self.model}")
 
-    def _create_system_prompt(self) -> str:
-        return """
-        You are an AI content moderation assistant. Your task is to analyze text content for potentially harmful elements.
-
-        You should identify content that may contain:
-        - Hate speech or discrimination based on race, gender, religion, etc.
-        - Harassment, bullying, or personal attacks
-        - Self-harm or suicide content
-        - Sexually explicit or inappropriate content
-        - Violence or threats
-        - Misinformation or deliberately misleading content
-        - Spam or unwanted commercial content
-
-        For each analysis, provide:
-        1. Whether the content is harmful
-        2. Categories of harmful content detected
-        3. Overall severity level 
-        4. Confidence score for each detected content category (between 0 and 1)
-        5. Specific segments of text that were flagged (if any)
-        6. Recommendation for handling the content
-        7. Explanation of your analysis
-
-        Be objective and thorough in your analysis. Make sure to provide confidence scores for each category identified. If you're uncertain about any aspect, reflect lower confidence scores for those categories.
-        """
-
-    def analyze_content(self, text: str) -> GptTextAnalysisResult:
+    def analyze_content(self, text: str, system_prompt: str) -> GptTextAnalysisResult:
         logger.debug(f"Starting GPT content analysis for text of length: {len(text)}")
-        
+
         if not text or not text.strip():
             logger.error("Empty text provided for analysis")
             raise ValueError("Text content cannot be empty")
@@ -72,15 +47,16 @@ class GptModerationService:
                 messages=[
                     {
                         "role": "system",
-                        "content": self._create_system_prompt(),
+                        "content": system_prompt,
                     },
                     {"role": "user", "content": text}
                 ]
             )
-            
-            logger.info(f"GPT analysis completed. Is harmful: {response.is_harmful}, Categories: {response.categories}, Severity: {response.severity}")
+
+            logger.info(
+                f"GPT analysis completed. Is harmful: {response.is_harmful}, Categories: {response.categories}, Severity: {response.severity}")
             logger.debug(f"Analysis confidence scores: {response.confidence}")
-            
+
             return response
         except Exception as e:
             logger.error(f"Error analyzing content with GPT: {str(e)}", exc_info=True)
