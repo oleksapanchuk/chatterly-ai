@@ -91,7 +91,7 @@ def _convert_image_results_to_categories(results: list[ModerationResult]) -> Lis
                 categories.append(
                     ContentCategorySeverity(
                         category=category,
-                        severity=SeverityLevel.NONE,  # Image API doesn't provide severity levels
+                        severity=_get_severity_from_score(score),  # Use confidence score to determine severity
                         confidence=score,
                         details=f"Image content flagged for {category} with {score:.2%} confidence"
                     )
