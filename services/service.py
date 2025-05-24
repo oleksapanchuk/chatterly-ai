@@ -5,6 +5,7 @@ from dto.moderation_response import ModerationResponse
 from services.audio_service import process_audio_array
 from services.image_service import process_image_array
 from services.scoring_service import ScoringService
+from services.improved_scoring_service import ImprovedScoringService
 from services.text_service import process_text_array
 from shared.content_type import ContentType
 from shared.logger_config import get_logger
@@ -13,7 +14,16 @@ from shared.validation_types import ContentCategorySeverity, SeverityLevel
 from shared.gpt_text_analysis_result import GptTextAnalysisResult
 
 logger = get_logger(__name__)
-scoring_service = ScoringService()
+
+# Configuration flag to choose scoring system
+USE_IMPROVED_SCORING = True  # Set to True to use the new probabilistic model
+
+if USE_IMPROVED_SCORING:
+    scoring_service = ImprovedScoringService()
+    logger.info("Using improved probabilistic scoring service")
+else:
+    scoring_service = ScoringService()
+    logger.info("Using legacy severity-based scoring service")
 
 
 def process_all_content_types(
