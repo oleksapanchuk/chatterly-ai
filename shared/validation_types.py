@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from shared.content_type import ContentType
+
 
 class ContentCategory(str, Enum):
     HATE_SPEECH = "HATE_SPEECH"
@@ -22,8 +24,10 @@ class SeverityLevel(str, Enum):
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
 
+
 class ContentCategorySeverity(BaseModel):
     category: ContentCategory = ContentCategory.NONE
     severity: SeverityLevel = SeverityLevel.NONE
     confidence: float = 0.0
     details: Optional[str] = ""
+    content_type: Optional[ContentType] = ContentType.UNKNOWN

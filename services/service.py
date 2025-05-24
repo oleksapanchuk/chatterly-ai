@@ -1,16 +1,15 @@
 import uuid
 from typing import List, Optional
 
-from sympy import true
-
 from dto.moderation_response import ModerationResponse
 from services.audio_service import process_audio_array
 from services.image_service import process_image_array
 from services.scoring_service import ScoringService
 from services.text_service import process_text_array
+from shared.content_type import ContentType
+from shared.logger_config import get_logger
 from shared.moderation_result import ModerationResult
 from shared.validation_types import ContentCategorySeverity, SeverityLevel
-from shared.logger_config import get_logger
 
 logger = get_logger(__name__)
 scoring_service = ScoringService()
@@ -24,7 +23,7 @@ def process_all_content_types(
 ) -> ModerationResponse:
     """Process all content types and return moderation results with scoring."""
     logger.info("Starting content processing for all types")
-    
+
     text_results = []
     image_results = []
     audio_results = []
@@ -33,7 +32,7 @@ def process_all_content_types(
     if text_array and len(text_array) > 0:
         logger.info(f"Processing {len(text_array)} text items")
         text_results = process_text_array(text_array)
-        detected_categories.extend(_convert_text_results_to_categories(text_results))
+        detected_categories.extend(_convert_text_results_to_categories(text_results, ContentType.TEXT))
         logger.info(f"Text processing completed. Found {len(text_results)} results")
 
     if image_urls and len(image_urls) > 0:
@@ -47,7 +46,7 @@ def process_all_content_types(
         audio__text_results = process_audio_array(audio_urls)
         logger.info(f"Audio transcription completed. Found {audio__text_results} results")
         audio_results = process_text_array(audio__text_results, True)
-        detected_categories.extend(_convert_text_results_to_categories(audio_results))
+        detected_categories.extend(_convert_text_results_to_categories(audio_results, ContentType.AUDIO))
         logger.info(f"Audio processing completed. Found {len(audio_results)} results")
 
     logger.info("Successfully processed all content types")
@@ -77,9 +76,10 @@ def process_all_content_types(
     )
 
 
-def _convert_text_results_to_categories(results) -> List[ContentCategorySeverity]:
+def _convert_text_results_to_categories(results, content_type: ContentType = ContentType.TEXT) -> List[
+    ContentCategorySeverity]:
     """Convert text analysis results to ContentCategorySeverity list."""
-    logger.debug(f"Converting {len(results)} text results to categories")
+    logger.debug(f"Converting {len(results)} {content_type} results to categories")
     categories = []
     for result in results:
         if result.is_harmful:
@@ -89,10 +89,11 @@ def _convert_text_results_to_categories(results) -> List[ContentCategorySeverity
                         category=category,
                         severity=result.severity,
                         confidence=result.confidence.get(category, 0.0),
-                        details=result.explanation
+                        details=result.explanation,
+                        content_type=content_type
                     )
                 )
-    logger.debug(f"Converted to {len(categories)} category entries")
+    logger.debug(f"Converted to {len(categories)} {content_type} category entries")
     return categories
 
 
@@ -100,24 +101,25 @@ def _convert_image_results_to_categories(results: list[ModerationResult]) -> Lis
     logger.debug(f"Converting {len(results)} image results to categories")
     categories = []
     CONFIDENCE_THRESHOLD = 0.7  # Only include categories with 70% or higher confidence
-    
+
     for result in results:
         if result.is_harmful:
             logger.debug(f"Processing harmful image result with score: {result.score}")
             high_confidence_categories = {
                 category: score for category, score in result.score.items() if score >= CONFIDENCE_THRESHOLD
             }
-            
+
             for category, score in high_confidence_categories.items():
                 categories.append(
                     ContentCategorySeverity(
                         category=category,
                         severity=_get_severity_from_score(score),  # Use confidence score to determine severity
                         confidence=score,
-                        details=f"Image content flagged for {category} with {score:.2%} confidence"
+                        details=f"Image content flagged for {category} with {score:.2%} confidence",
+                        content_type=ContentType.IMAGE
                     )
                 )
-    
+
     logger.debug(f"Converted to {len(categories)} image category entries")
     return categories
 
