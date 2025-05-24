@@ -46,9 +46,9 @@ def process_all_content_types(
         logger.info(f"Processing {len(audio_urls)} audio URLs")
         audio__text_results = process_audio_array(audio_urls)
         logger.info(f"Audio transcription completed. Found {audio__text_results} results")
-        moderation__audio_results = process_text_array(audio__text_results, True)
-        detected_categories.extend(_convert_text_results_to_categories(moderation__audio_results))
-        logger.info(f"Audio processing completed. Found {len(moderation__audio_results)} results")
+        audio_results = process_text_array(audio__text_results, True)
+        detected_categories.extend(_convert_text_results_to_categories(audio_results))
+        logger.info(f"Audio processing completed. Found {len(audio_results)} results")
 
     logger.info("Successfully processed all content types")
 

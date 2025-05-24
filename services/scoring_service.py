@@ -68,7 +68,7 @@ class ScoringService:
             self.logger.debug(f"Image score: {image_score}, Weighted: {weighted_score}")
 
         if audio_results:
-            audio_score = self._calculate_text_score(audio_results)  # Audio uses same logic as text
+            audio_score = self._calculate_audio_score(audio_results)
             weighted_score = audio_score * self.CONTENT_TYPE_WEIGHTS["audio"]
             scores.append(weighted_score)
             self.logger.debug(f"Audio score: {audio_score}, Weighted: {weighted_score}")
@@ -141,6 +141,50 @@ class ScoringService:
 
         final_score = min(100, max_score)
         self.logger.debug(f"Image content max score: {final_score}")
+        return final_score
+
+    def _calculate_audio_score(self, results: List[GptTextAnalysisResult]) -> float:
+        """Calculate score for audio content with considerations for transcription accuracy."""
+        if not results:
+            return 0
+
+        self.logger.debug(f"Calculating audio score for {len(results)} results")
+        max_score = 0
+        
+        # Audio-specific adjustment factor to account for transcription inaccuracies
+        TRANSCRIPTION_ACCURACY_FACTOR = 0.9  # Slight reduction to account for potential transcription errors
+        
+        for i, result in enumerate(results):
+            if not result.is_harmful:
+                self.logger.debug(f"Audio result {i + 1} is not harmful, skipping")
+                continue
+
+            # Base score from severity
+            severity_score = self.SEVERITY_SCORES[result.severity]
+
+            # Apply category weights
+            category_multiplier = max(
+                self.CATEGORY_WEIGHTS[cat] for cat in result.categories
+            )
+
+            # Factor in confidence with audio-specific adjustments
+            confidence_scores = list(result.confidence.values())
+            avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.5
+            
+            # Apply transcription accuracy factor to confidence for audio content
+            # This accounts for potential speech recognition errors and unclear context
+            adjusted_confidence = avg_confidence * TRANSCRIPTION_ACCURACY_FACTOR
+
+            score = severity_score * category_multiplier * adjusted_confidence
+            self.logger.debug(f"Audio result {i + 1}: severity={result.severity.value}, "
+                             f"categories={[c.value for c in result.categories]}, "
+                             f"original_confidence={avg_confidence:.3f}, "
+                             f"adjusted_confidence={adjusted_confidence:.3f}, "
+                             f"score={score}")
+            max_score = max(max_score, score)
+
+        final_score = min(100, max_score)
+        self.logger.debug(f"Audio content max score: {final_score}")
         return final_score
 
     def update_user_reputation(
